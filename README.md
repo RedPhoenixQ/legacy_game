@@ -3,11 +3,11 @@ cargo watch -cx "run --release"
 ```
 
 ```
-cargo build --profile wasm-release --target wasm32-unknown-unknown
+cargo build --profile wasm-release
 ```
 
 ``` 
-wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/release/legacy_game.wasm
+wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/wasm-release/legacy_game.wasm
 ```
 
 ```
