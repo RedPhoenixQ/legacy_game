@@ -2,6 +2,15 @@
 cargo watch -cx "run --release"
 ```
 
+```
+cargo build --profile wasm-release --target wasm32-unknown-unknown
+```
+
 ``` 
 wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/release/legacy_game.wasm
+```
+
+```
+wasm-opt -Oz --output ./out/optimized.wasm ./out/legacy_game_bg.wasm
+mv optimized.wasm ./target/legacy_game_bg.wasm
 ```
