@@ -162,7 +162,7 @@ fn move_players(
 }
 
 fn start_matchbox_socket(mut commands: Commands) {
-    let room_url = "ws://matchbox.teodorkallman.com/extreme_bevy?next=2";
+    let room_url = "wss://matchbox.teodorkallman.com/extreme_bevy?next=2";
     info!("connecting to matchbox server: {:?}", room_url);
     let (socket, message_loop) = WebRtcSocket::new(room_url);
 
