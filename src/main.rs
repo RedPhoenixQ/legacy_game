@@ -14,6 +14,7 @@ fn main() {
             window: WindowDescriptor {
                 // fill the entire browser window
                 fit_canvas_to_parent: true,
+                canvas: Some("#game_canvas".into()),
                 ..default()
             },
             ..default()
