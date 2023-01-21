@@ -3,7 +3,7 @@ cargo watch -cx "run --release"
 ```
 
 ```
-cargo build --profile wasm-release
+RUSTFLAGS='--cfg use_canvas' cargo build --profile wasm-release --cfg use_canvas
 ```
 
 ``` 

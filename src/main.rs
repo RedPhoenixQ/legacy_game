@@ -1,32 +1,74 @@
-use bevy::{prelude::*, render::camera::ScalingMode};
+use bevy::{prelude::*, render::camera::ScalingMode, tasks::IoTaskPool};
+use bevy_ggrs::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use matchbox_socket::WebRtcSocket;
+
+#[derive(Resource)]
+struct Session {
+    socket: Option<WebRtcSocket>,
+}
 
 #[derive(Component)]
-struct Player;
+struct Player {
+    handle: usize,
+}
 
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource)]
 struct MoveSpeed(f32);
 
+struct GgrsConfig;
+
+impl ggrs::Config for GgrsConfig {
+    // 4-directions + fire fits easily in a single byte
+    type Input = u8;
+    type State = u8;
+    // Matchbox' WebRtcSocket addresses are strings
+    type Address = String;
+}
+
+const INPUT_UP: u8 = 1 << 0;
+const INPUT_DOWN: u8 = 1 << 1;
+const INPUT_LEFT: u8 = 1 << 2;
+const INPUT_RIGHT: u8 = 1 << 3;
+const INPUT_FIRE: u8 = 1 << 4;
+
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                // fill the entire browser window
-                fit_canvas_to_parent: true,
-                canvas: Some("#game_canvas".into()),
-                ..default()
-            },
+    let mut app = App::new();
+
+    GGRSPlugin::<GgrsConfig>::new()
+        .with_input_system(input)
+        .with_rollback_schedule(Schedule::default().with_stage(
+            "ROLLBACK_STAGE",
+            SystemStage::single_threaded().with_system(move_players),
+        ))
+        .register_rollback_component::<Transform>()
+        .build(&mut app);
+
+    let canvas: Option<String> = if cfg!(use_canvas) {
+        Some("#game_canvas".into())
+    } else {
+        None
+    };
+
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        window: WindowDescriptor {
+            // fill the entire browser window
+            fit_canvas_to_parent: true,
+            canvas,
             ..default()
-        }))
-        .add_plugin(WorldInspectorPlugin)
-        .insert_resource(ClearColor(Color::rgb(0.23, 0.23, 0.23)))
-        .insert_resource(MoveSpeed(0.15))
-        .register_type::<MoveSpeed>()
-        .add_startup_system(setup)
-        .add_startup_system(spawn_player)
-        .add_system(handle_input)
-        .run();
+        },
+        ..default()
+    }))
+    .add_plugin(WorldInspectorPlugin)
+    .insert_resource(ClearColor(Color::rgb(0.23, 0.23, 0.23)))
+    .insert_resource(MoveSpeed(0.15))
+    .register_type::<MoveSpeed>()
+    .add_startup_system(setup)
+    .add_startup_system(start_matchbox_socket)
+    .add_startup_system(spawn_player)
+    .add_system(wait_for_players)
+    .run();
 }
 
 fn setup(mut commands: Commands) {
@@ -35,10 +77,12 @@ fn setup(mut commands: Commands) {
     commands.spawn(camera_bundle);
 }
 
-fn spawn_player(mut commands: Commands) {
+fn spawn_player(mut commands: Commands, mut rip: ResMut<RollbackIdProvider>) {
     commands.spawn((
-        Player,
+        Player { handle: 0 },
+        Rollback::new(rip.next_id()),
         SpriteBundle {
+            transform: Transform::from_translation(Vec3::new(-2., 0., 0.)),
             sprite: Sprite {
                 color: Color::rgb(0., 0.47, 1.),
                 custom_size: Some(Vec2::new(1., 1.)),
@@ -47,33 +91,125 @@ fn spawn_player(mut commands: Commands) {
             ..default()
         },
     ));
+
+    commands.spawn((
+        Player { handle: 1 },
+        Rollback::new(rip.next_id()),
+        SpriteBundle {
+            transform: Transform::from_translation(Vec3::new(-2., 0., 3.)),
+            sprite: Sprite {
+                color: Color::rgb(0.2, 0.27, 0.7),
+                custom_size: Some(Vec2::new(1., 1.)),
+                ..default()
+            },
+            ..default()
+        },
+    ));
 }
 
-fn handle_input(
-    keys: Res<Input<KeyCode>>,
-    mut player_query: Query<&mut Transform, With<Player>>,
-    move_speed: Res<MoveSpeed>,
-) {
-    let mut direction = Vec2::ZERO;
+fn input(_: In<ggrs::PlayerHandle>, keys: Res<Input<KeyCode>>) -> u8 {
+    let mut input = 0u8;
+
     if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
-        direction.y += 1.;
+        input |= INPUT_UP;
     }
     if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
-        direction.y -= 1.;
-    }
-    if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
-        direction.x += 1.;
+        input |= INPUT_DOWN;
     }
     if keys.any_pressed([KeyCode::Left, KeyCode::A]) {
-        direction.x -= 1.;
+        input |= INPUT_LEFT
     }
-    if direction == Vec2::ZERO {
-        return;
+    if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
+        input |= INPUT_RIGHT;
+    }
+    if keys.any_pressed([KeyCode::Space, KeyCode::Return]) {
+        input |= INPUT_FIRE;
     }
 
-    let move_delta = (direction * move_speed.0).extend(0.);
+    input
+}
 
-    for mut transform in player_query.iter_mut() {
+fn move_players(
+    inputs: Res<PlayerInputs<GgrsConfig>>,
+    mut player_query: Query<(&mut Transform, &Player)>,
+) {
+    for (mut transform, player) in player_query.iter_mut() {
+        let (input, _) = inputs[player.handle];
+
+        let mut direction = Vec2::ZERO;
+
+        if input & INPUT_UP != 0 {
+            direction.y += 1.;
+        }
+        if input & INPUT_DOWN != 0 {
+            direction.y -= 1.;
+        }
+        if input & INPUT_RIGHT != 0 {
+            direction.x += 1.;
+        }
+        if input & INPUT_LEFT != 0 {
+            direction.x -= 1.;
+        }
+        if direction == Vec2::ZERO {
+            continue;
+        }
+
+        let move_speed = 0.13;
+        let move_delta = (direction * move_speed).extend(0.);
+
         transform.translation += move_delta;
     }
+}
+
+fn start_matchbox_socket(mut commands: Commands) {
+    let room_url = "ws://matchbox.teodorkallman.com/extreme_bevy?next=2";
+    info!("connecting to matchbox server: {:?}", room_url);
+    let (socket, message_loop) = WebRtcSocket::new(room_url);
+
+    // The message loop needs to be awaited, or nothing will happen.
+    // We do this here using bevy's task system.
+    IoTaskPool::get().spawn(message_loop).detach();
+
+    commands.insert_resource(Session {
+        socket: Some(socket),
+    });
+}
+
+fn wait_for_players(mut commands: Commands, mut session: ResMut<Session>) {
+    let Some(socket) = &mut session.socket else {
+        // If there is no socket we've already started the game
+        return;
+    };
+
+    // Check for new connections
+    socket.accept_new_connections();
+    let players = socket.players();
+
+    let num_players = 2;
+    if players.len() < num_players {
+        return; // wait for more players
+    }
+
+    info!("All peers have joined, going in-game");
+    // TODO
+    // create a GGRS P2P session
+    let mut session_builder = ggrs::SessionBuilder::<GgrsConfig>::new()
+        // .with_num_players(num_players)
+        .with_input_delay(2);
+
+    for (i, player) in players.into_iter().enumerate() {
+        session_builder = session_builder
+            .add_player(player, i)
+            .expect("failed to add player");
+    }
+
+    // move the socket out of the resource (required because GGRS takes ownership of it)
+    let socket = session.socket.take().unwrap();
+
+    // start the GGRS session
+    let ggrs_session = session_builder
+        .start_p2p_session(socket)
+        .expect("failed to start session");
+
+    commands.insert_resource(bevy_ggrs::Session::P2PSession(ggrs_session));
 }
