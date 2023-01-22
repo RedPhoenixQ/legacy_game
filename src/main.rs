@@ -1,6 +1,8 @@
 use bevy::{prelude::*, render::camera::ScalingMode, tasks::IoTaskPool};
 use bevy_ggrs::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_pancam::{PanCam, PanCamPlugin};
+use bevy_web_asset::WebAssetPlugin;
 use matchbox_socket::WebRtcSocket;
 
 #[derive(Resource)]
@@ -51,43 +53,60 @@ fn main() {
         None
     };
 
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        window: WindowDescriptor {
-            // fill the entire browser window
-            fit_canvas_to_parent: true,
-            canvas,
-            ..default()
-        },
-        ..default()
-    }))
-    .add_plugin(WorldInspectorPlugin)
-    .insert_resource(ClearColor(Color::rgb(0.23, 0.23, 0.23)))
-    .insert_resource(MoveSpeed(0.15))
-    .register_type::<MoveSpeed>()
-    .add_startup_system(setup)
-    .add_startup_system(start_matchbox_socket)
-    .add_startup_system(spawn_player)
-    .add_system(wait_for_players)
-    .run();
+    app.add_plugin(WebAssetPlugin::default())
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        // fill the entire browser window
+                        fit_canvas_to_parent: true,
+                        canvas,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .disable::<AssetPlugin>(),
+        )
+        .add_plugin(WorldInspectorPlugin)
+        .add_plugin(PanCamPlugin::default())
+        .insert_resource(ClearColor(Color::rgb(0.23, 0.23, 0.23)))
+        .insert_resource(MoveSpeed(0.15))
+        .register_type::<MoveSpeed>()
+        .add_startup_system(setup)
+        .add_startup_system(start_matchbox_socket)
+        .add_startup_system(spawn_player)
+        .add_system(wait_for_players)
+        .run();
 }
 
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
-    commands.spawn(camera_bundle);
+    commands.spawn(camera_bundle).insert(PanCam {
+        grab_buttons: vec![MouseButton::Left, MouseButton::Middle],
+        enabled: true,
+        zoom_to_cursor: true,
+        max_scale: Some(5.),
+        min_scale: 0.1,
+        ..default()
+    });
 }
 
-fn spawn_player(mut commands: Commands, mut rip: ResMut<RollbackIdProvider>) {
+fn spawn_player(
+    mut commands: Commands,
+    mut rip: ResMut<RollbackIdProvider>,
+    asset_server: Res<AssetServer>,
+) {
     commands.spawn((
         Player { handle: 0 },
         Rollback::new(rip.next_id()),
         SpriteBundle {
             transform: Transform::from_translation(Vec3::new(-2., 0., 0.)),
             sprite: Sprite {
-                color: Color::rgb(0., 0.47, 1.),
                 custom_size: Some(Vec2::new(1., 1.)),
                 ..default()
             },
+            texture: asset_server.load("https://pb.teodorkallman.com/api/files/do5wjchjokp39xu/993uolh5bif5cxe/christmas_xiao_CsVpPbYYud.png"),
             ..default()
         },
     ));
@@ -98,10 +117,10 @@ fn spawn_player(mut commands: Commands, mut rip: ResMut<RollbackIdProvider>) {
         SpriteBundle {
             transform: Transform::from_translation(Vec3::new(-2., 0., 3.)),
             sprite: Sprite {
-                color: Color::rgb(0.2, 0.27, 0.7),
                 custom_size: Some(Vec2::new(1., 1.)),
                 ..default()
             },
+            texture: asset_server.load("https://pb.teodorkallman.com/api/files/do5wjchjokp39xu/diip395x5vth5yp/diluc_annoyed_face_OGBBgYbgHM.png"),
             ..default()
         },
     ));
