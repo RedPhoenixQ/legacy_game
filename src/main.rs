@@ -11,6 +11,9 @@ use input::*;
 mod components;
 use components::*;
 
+mod config;
+use config::size;
+
 #[derive(Resource)]
 struct Session {
     socket: Option<WebRtcSocket>,
@@ -78,6 +81,10 @@ fn setup(mut commands: Commands) {
         zoom_to_cursor: true,
         max_scale: Some(5.),
         min_scale: 0.1,
+        max_x: Some(size.0),
+        min_x: Some(-size.0),
+        max_y: Some(size.1),
+        min_y: Some(-size.1),
         ..default()
     });
 }
@@ -133,6 +140,10 @@ fn move_players(
         let move_delta = (direction * move_speed.0).extend(0.);
 
         transform.translation += move_delta;
+        transform.translation = transform.translation.clamp(
+            Vec3::new(-size.0, -size.1, -1000.),
+            Vec3::new(size.0, size.1, 1000.),
+        );
     }
 }
 
