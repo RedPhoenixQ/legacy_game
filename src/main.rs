@@ -42,12 +42,6 @@ fn main() {
         .register_rollback_component::<Transform>()
         .build(&mut app);
 
-    let canvas: Option<String> = if cfg!(use_canvas) {
-        Some("#game_canvas".into())
-    } else {
-        None
-    };
-
     app.add_plugin(WebAssetPlugin::default())
         .add_plugins(
             DefaultPlugins
@@ -55,7 +49,8 @@ fn main() {
                     window: WindowDescriptor {
                         // fill the entire browser window
                         fit_canvas_to_parent: true,
-                        canvas,
+                        #[cfg(use_canvas)]
+                        canvas: Some("#game_canvas"),
                         ..default()
                     },
                     ..default()
