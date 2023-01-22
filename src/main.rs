@@ -105,7 +105,7 @@ fn spawn_player(
         Player { handle: 1 },
         Rollback::new(rip.next_id()),
         SpriteBundle {
-            transform: Transform::from_translation(Vec3::new(-2., 0., 3.)),
+            transform: Transform::from_translation(Vec3::new(-2., 3., 0.)),
             sprite: Sprite {
                 custom_size: Some(Vec2::new(1., 1.)),
                 ..default()
