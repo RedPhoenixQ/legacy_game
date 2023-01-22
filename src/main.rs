@@ -5,14 +5,15 @@ use bevy_pancam::{PanCam, PanCamPlugin};
 use bevy_web_asset::WebAssetPlugin;
 use matchbox_socket::WebRtcSocket;
 
+mod input;
+use input::*;
+
+mod components;
+use components::*;
+
 #[derive(Resource)]
 struct Session {
     socket: Option<WebRtcSocket>,
-}
-
-#[derive(Component)]
-struct Player {
-    handle: usize,
 }
 
 #[derive(Resource, Default, Reflect)]
@@ -28,12 +29,6 @@ impl ggrs::Config for GgrsConfig {
     // Matchbox' WebRtcSocket addresses are strings
     type Address = String;
 }
-
-const INPUT_UP: u8 = 1 << 0;
-const INPUT_DOWN: u8 = 1 << 1;
-const INPUT_LEFT: u8 = 1 << 2;
-const INPUT_RIGHT: u8 = 1 << 3;
-const INPUT_FIRE: u8 = 1 << 4;
 
 fn main() {
     let mut app = App::new();
@@ -126,55 +121,21 @@ fn spawn_player(
     ));
 }
 
-fn input(_: In<ggrs::PlayerHandle>, keys: Res<Input<KeyCode>>) -> u8 {
-    let mut input = 0u8;
-
-    if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
-        input |= INPUT_UP;
-    }
-    if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
-        input |= INPUT_DOWN;
-    }
-    if keys.any_pressed([KeyCode::Left, KeyCode::A]) {
-        input |= INPUT_LEFT
-    }
-    if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
-        input |= INPUT_RIGHT;
-    }
-    if keys.any_pressed([KeyCode::Space, KeyCode::Return]) {
-        input |= INPUT_FIRE;
-    }
-
-    input
-}
-
 fn move_players(
     inputs: Res<PlayerInputs<GgrsConfig>>,
     mut player_query: Query<(&mut Transform, &Player)>,
+    move_speed: Res<MoveSpeed>,
 ) {
     for (mut transform, player) in player_query.iter_mut() {
         let (input, _) = inputs[player.handle];
 
-        let mut direction = Vec2::ZERO;
+        let direction = direction(input);
 
-        if input & INPUT_UP != 0 {
-            direction.y += 1.;
-        }
-        if input & INPUT_DOWN != 0 {
-            direction.y -= 1.;
-        }
-        if input & INPUT_RIGHT != 0 {
-            direction.x += 1.;
-        }
-        if input & INPUT_LEFT != 0 {
-            direction.x -= 1.;
-        }
         if direction == Vec2::ZERO {
             continue;
         }
 
-        let move_speed = 0.13;
-        let move_delta = (direction * move_speed).extend(0.);
+        let move_delta = (direction * move_speed.0).extend(0.);
 
         transform.translation += move_delta;
     }
