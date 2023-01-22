@@ -53,7 +53,7 @@ fn main() {
                         // fill the entire browser window
                         fit_canvas_to_parent: true,
                         #[cfg(use_canvas)]
-                        canvas: Some("#game_canvas"),
+                        canvas: Some("#game_canvas".into()),
                         ..default()
                     },
                     ..default()
