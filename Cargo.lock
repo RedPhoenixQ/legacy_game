@@ -3349,6 +3349,7 @@ dependencies = [
  "bevy_ggrs",
  "bevy_pancam",
  "bevy_web_asset",
+ "bytemuck",
  "matchbox_socket",
 ]
 

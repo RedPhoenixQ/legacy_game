@@ -3,6 +3,7 @@ use bevy_ggrs::{ggrs::PlayerType, *};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_pancam::{PanCam, PanCamPlugin};
 use bevy_web_asset::WebAssetPlugin;
+use bytemuck::{Pod, Zeroable};
 use matchbox_socket::WebRtcSocket;
 
 mod input;
@@ -13,6 +14,9 @@ use components::*;
 
 mod config;
 use config::size;
+
+mod cursor;
+use cursor::*;
 
 #[derive(Resource)]
 struct Session {
@@ -26,11 +30,18 @@ struct LocalPlayerHandle(usize);
 #[reflect(Resource)]
 struct MoveSpeed(f32);
 
+#[derive(Default, Clone, Copy, PartialEq, Zeroable, Pod)]
+#[repr(C)]
+pub struct Packet {
+    angle: Vec2,
+    input: u32,
+}
+
 struct GgrsConfig;
 
 impl ggrs::Config for GgrsConfig {
     // 4-directions + fire fits easily in a single byte
-    type Input = u8;
+    type Input = Packet;
     type State = u8;
     // Matchbox' WebRtcSocket addresses are strings
     type Address = String;
@@ -46,7 +57,6 @@ fn main() {
                 "ROLLBACK_STAGE",
                 SystemStage::single_threaded()
                     .with_system(move_players)
-                    .with_system(move_bullets)
                     .with_system(fire_bullets),
             ),
         )
@@ -70,6 +80,7 @@ fn main() {
         )
         .add_plugin(WorldInspectorPlugin)
         .add_plugin(PanCamPlugin::default())
+        .add_plugin(CursorPlugin)
         .insert_resource(ClearColor(Color::rgb(0.23, 0.23, 0.23)))
         .insert_resource(MoveSpeed(0.15))
         .register_type::<MoveSpeed>()
@@ -77,6 +88,7 @@ fn main() {
         .add_startup_system(start_matchbox_socket)
         .add_startup_system(spawn_player)
         .add_system(wait_for_players)
+        .add_system(move_bullets)
         .run();
 }
 
@@ -135,29 +147,25 @@ fn fire_bullets(
     mut player_query: Query<(&Transform, &mut Player)>,
     time: Res<Time>,
     mut commands: Commands,
-    cam: Query<&Camera>,
+    mut lines: ResMut<DebugLines>,
 ) {
     for (transform, mut player) in player_query.iter_mut() {
         let (input, _) = inputs[player.handle];
         player.reloading.tick(time.delta());
 
-        if has_fired(input) && player.reloading.finished() {
+        if has_fired(input.input) && player.reloading.finished() {
             player.reloading.reset();
+            let xy = transform.translation.truncate();
+            let direction = (input.angle - xy).normalize();
             commands.spawn((
-                Bullet {
-                    direction: player.last_direction,
-                },
+                Bullet { direction },
                 SpriteBundle {
                     sprite: Sprite {
                         color: Color::RED,
                         custom_size: Some(Vec2 { x: 0.2, y: 0.2 }),
                         ..default()
                     },
-                    transform: Transform::from_xyz(
-                        transform.translation.x,
-                        transform.translation.y,
-                        100.,
-                    ),
+                    transform: Transform::from_translation(xy.extend(100.)),
                     ..default()
                 },
             ));
@@ -187,7 +195,7 @@ fn move_players(
     for (mut transform, mut player) in player_query.iter_mut() {
         let (input, _) = inputs[player.handle];
 
-        let direction = direction(input);
+        let direction = direction(input.input);
 
         if direction == Vec2::ZERO {
             continue;
