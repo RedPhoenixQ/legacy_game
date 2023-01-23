@@ -1,5 +1,5 @@
 use bevy::{prelude::*, render::camera::ScalingMode, tasks::IoTaskPool};
-use bevy_ggrs::*;
+use bevy_ggrs::{ggrs::PlayerType, *};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_pancam::{PanCam, PanCamPlugin};
 use bevy_web_asset::WebAssetPlugin;
@@ -18,6 +18,9 @@ use config::size;
 struct Session {
     socket: Option<WebRtcSocket>,
 }
+
+#[derive(Resource)]
+struct LocalPlayerHandle(usize);
 
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource)]
@@ -38,10 +41,15 @@ fn main() {
 
     GGRSPlugin::<GgrsConfig>::new()
         .with_input_system(input)
-        .with_rollback_schedule(Schedule::default().with_stage(
-            "ROLLBACK_STAGE",
-            SystemStage::single_threaded().with_system(move_players),
-        ))
+        .with_rollback_schedule(
+            Schedule::default().with_stage(
+                "ROLLBACK_STAGE",
+                SystemStage::single_threaded()
+                    .with_system(move_players)
+                    .with_system(move_bullets)
+                    .with_system(fire_bullets),
+            ),
+        )
         .register_rollback_component::<Transform>()
         .build(&mut app);
 
@@ -85,7 +93,6 @@ fn setup(mut commands: Commands) {
         min_x: Some(-size.0),
         max_y: Some(size.1),
         min_y: Some(-size.1),
-        ..default()
     });
 }
 
@@ -95,7 +102,7 @@ fn spawn_player(
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
-        Player { handle: 0 },
+        Player { handle: 0, ..default() },
         Rollback::new(rip.next_id()),
         SpriteBundle {
             transform: Transform::from_translation(Vec3::new(-2., 0., 0.)),
@@ -109,7 +116,7 @@ fn spawn_player(
     ));
 
     commands.spawn((
-        Player { handle: 1 },
+        Player { handle: 1, ..default() },
         Rollback::new(rip.next_id()),
         SpriteBundle {
             transform: Transform::from_translation(Vec3::new(-2., 3., 0.)),
@@ -123,12 +130,61 @@ fn spawn_player(
     ));
 }
 
+fn fire_bullets(
+    inputs: Res<PlayerInputs<GgrsConfig>>,
+    mut player_query: Query<(&Transform, &mut Player)>,
+    time: Res<Time>,
+    mut commands: Commands,
+    cam: Query<&Camera>,
+) {
+    for (transform, mut player) in player_query.iter_mut() {
+        let (input, _) = inputs[player.handle];
+        player.reloading.tick(time.delta());
+
+        if has_fired(input) && player.reloading.finished() {
+            player.reloading.reset();
+            commands.spawn((
+                Bullet {
+                    direction: player.last_direction,
+                },
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::RED,
+                        custom_size: Some(Vec2 { x: 0.2, y: 0.2 }),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(
+                        transform.translation.x,
+                        transform.translation.y,
+                        100.,
+                    ),
+                    ..default()
+                },
+            ));
+        }
+    }
+}
+
+fn move_bullets(
+    mut bullet_query: Query<(Entity, &mut Transform, &Bullet)>,
+    mut commands: Commands,
+) {
+    for (entity, mut transform, bullet) in bullet_query.iter_mut() {
+        let move_delta = (bullet.direction * 0.5).extend(0.);
+
+        transform.translation += move_delta;
+        if transform.translation.distance(Vec2::ZERO.extend(100.)) > 20. {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 fn move_players(
     inputs: Res<PlayerInputs<GgrsConfig>>,
-    mut player_query: Query<(&mut Transform, &Player)>,
+    mut player_query: Query<(&mut Transform, &mut Player)>,
     move_speed: Res<MoveSpeed>,
 ) {
-    for (mut transform, player) in player_query.iter_mut() {
+    for (mut transform, mut player) in player_query.iter_mut() {
         let (input, _) = inputs[player.handle];
 
         let direction = direction(input);
@@ -136,7 +192,7 @@ fn move_players(
         if direction == Vec2::ZERO {
             continue;
         }
-
+        player.last_direction = direction;
         let move_delta = (direction * move_speed.0).extend(0.);
 
         transform.translation += move_delta;
@@ -180,10 +236,13 @@ fn wait_for_players(mut commands: Commands, mut session: ResMut<Session>) {
     // TODO
     // create a GGRS P2P session
     let mut session_builder = ggrs::SessionBuilder::<GgrsConfig>::new()
-        // .with_num_players(num_players)
+        .with_num_players(num_players)
         .with_input_delay(2);
 
     for (i, player) in players.into_iter().enumerate() {
+        if player == PlayerType::Local {
+            commands.insert_resource(LocalPlayerHandle(i));
+        }
         session_builder = session_builder
             .add_player(player, i)
             .expect("failed to add player");
