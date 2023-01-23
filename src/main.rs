@@ -79,8 +79,6 @@ fn main() {
                 })
                 .disable::<AssetPlugin>(),
         )
-        .add_plugin(DebugLinesPlugin::default())
-        .add_plugin(WorldInspectorPlugin)
         .add_plugin(PanCamPlugin::default())
         .add_plugin(CursorPlugin)
         .insert_resource(ClearColor(Color::rgb(0.23, 0.23, 0.23)))
@@ -90,8 +88,14 @@ fn main() {
         .add_startup_system(start_matchbox_socket)
         .add_startup_system(spawn_player)
         .add_system(wait_for_players)
-        .add_system(move_bullets)
-        .run();
+        .add_system(move_bullets);
+
+    if !cfg!(debug_assertions) {
+        app.add_plugin(DebugLinesPlugin::default())
+            .add_plugin(WorldInspectorPlugin);
+    }
+
+    app.run();
 }
 
 fn setup(mut commands: Commands) {

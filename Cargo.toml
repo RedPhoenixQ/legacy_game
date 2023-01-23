@@ -15,6 +15,10 @@ bevy_web_asset = "0.5.0"
 bytemuck = "1.13.0"
 matchbox_socket = { version = "0.4", features = ["ggrs-socket"] }
 
+[profile.wasm-local]
+inherits = "release"
+debug-assertions = true
+
 [profile.wasm-release]
 # Use release profile as default values
 inherits = "release"

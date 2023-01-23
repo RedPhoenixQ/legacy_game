@@ -1,5 +1,5 @@
 ``` 
-cargo watch -cx "run --release"
+cargo watch -cx "run --profile wasm-local"
 ```
 
 ```
