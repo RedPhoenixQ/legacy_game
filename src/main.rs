@@ -2,6 +2,7 @@ use bevy::{prelude::*, render::camera::ScalingMode, tasks::IoTaskPool};
 use bevy_ggrs::{ggrs::PlayerType, *};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_pancam::{PanCam, PanCamPlugin};
+use bevy_prototype_debug_lines::*;
 use bevy_web_asset::WebAssetPlugin;
 use bytemuck::{Pod, Zeroable};
 use matchbox_socket::WebRtcSocket;
@@ -78,6 +79,7 @@ fn main() {
                 })
                 .disable::<AssetPlugin>(),
         )
+        .add_plugin(DebugLinesPlugin::default())
         .add_plugin(WorldInspectorPlugin)
         .add_plugin(PanCamPlugin::default())
         .add_plugin(CursorPlugin)
@@ -156,6 +158,8 @@ fn fire_bullets(
         if has_fired(input.input) && player.reloading.finished() {
             player.reloading.reset();
             let xy = transform.translation.truncate();
+            #[cfg(debug_assertions)]
+            lines.line(xy.extend(100.), input.angle.extend(100.), 1.);
             let direction = (input.angle - xy).normalize();
             commands.spawn((
                 Bullet { direction },

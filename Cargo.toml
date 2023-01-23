@@ -10,6 +10,7 @@ bevy = "0.9.1"
 bevy-inspector-egui = "0.17.0"
 bevy_ggrs = { version = "0.11", features = ["wasm-bindgen"] }
 bevy_pancam = { version = "0.7.0", features = [ "bevy_egui", "bevy-inspector-egui"]}
+bevy_prototype_debug_lines = "0.9.0"
 bevy_web_asset = "0.5.0"
 bytemuck = "1.13.0"
 matchbox_socket = { version = "0.4", features = ["ggrs-socket"] }
