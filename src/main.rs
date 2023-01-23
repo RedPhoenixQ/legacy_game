@@ -14,7 +14,7 @@ mod components;
 use components::*;
 
 mod config;
-use config::size;
+use config::SIZE;
 
 mod cursor;
 use cursor::*;
@@ -107,10 +107,10 @@ fn setup(mut commands: Commands) {
         zoom_to_cursor: true,
         max_scale: Some(5.),
         min_scale: 0.1,
-        max_x: Some(size.0),
-        min_x: Some(-size.0),
-        max_y: Some(size.1),
-        min_y: Some(-size.1),
+        max_x: Some(SIZE.0),
+        min_x: Some(-SIZE.0),
+        max_y: Some(SIZE.1),
+        min_y: Some(-SIZE.1),
     });
 }
 
@@ -213,8 +213,8 @@ fn move_players(
 
         transform.translation += move_delta;
         transform.translation = transform.translation.clamp(
-            Vec3::new(-size.0, -size.1, -1000.),
-            Vec3::new(size.0, size.1, 1000.),
+            Vec3::new(-SIZE.0, -SIZE.1, -1000.),
+            Vec3::new(SIZE.0, SIZE.1, 1000.),
         );
     }
 }
