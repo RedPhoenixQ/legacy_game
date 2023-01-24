@@ -90,7 +90,7 @@ fn main() {
         .add_system(wait_for_players)
         .add_system(move_bullets);
 
-    if !cfg!(debug_assertions) {
+    if cfg!(debug_assertions) {
         app.add_plugin(DebugLinesPlugin::default())
             .add_plugin(WorldInspectorPlugin);
     }
