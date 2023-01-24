@@ -1,3 +1,6 @@
+[alias]
+dev = ["watch", "-cx", "run --profile wasm-local"]
+
 [build]
 target = "wasm32-unknown-unknown"
 
