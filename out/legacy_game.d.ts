@@ -7,12 +7,11 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly main: (a: number, b: number) => number;
   readonly wgpu_render_pass_draw: (a: number, b: number, c: number, d: number, e: number) => void;
-  readonly wgpu_render_pass_set_scissor_rect: (a: number, b: number, c: number, d: number, e: number) => void;
+  readonly wgpu_render_pass_set_vertex_buffer: (a: number, b: number, c: number, d: number, e: number) => void;
+  readonly wgpu_render_pass_draw_indexed: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
   readonly wgpu_render_pass_set_viewport: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
   readonly wgpu_render_pass_set_bind_group: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly wgpu_render_pass_set_pipeline: (a: number, b: number) => void;
-  readonly wgpu_render_pass_set_vertex_buffer: (a: number, b: number, c: number, d: number, e: number) => void;
-  readonly wgpu_render_pass_draw_indexed: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
   readonly wgpu_render_bundle_set_bind_group: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly wgpu_render_bundle_set_pipeline: (a: number, b: number) => void;
   readonly wgpu_render_bundle_set_vertex_buffer: (a: number, b: number, c: number, d: number, e: number) => void;
@@ -38,6 +37,7 @@ export interface InitOutput {
   readonly wgpu_render_pass_set_index_buffer: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly wgpu_render_pass_set_blend_constant: (a: number, b: number) => void;
   readonly wgpu_render_pass_set_stencil_reference: (a: number, b: number) => void;
+  readonly wgpu_render_pass_set_scissor_rect: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly wgpu_render_pass_set_push_constants: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly wgpu_render_pass_draw_indirect: (a: number, b: number, c: number) => void;
   readonly wgpu_render_pass_draw_indexed_indirect: (a: number, b: number, c: number) => void;
