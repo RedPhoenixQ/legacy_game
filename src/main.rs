@@ -153,7 +153,7 @@ fn fire_bullets(
     mut player_query: Query<(&Transform, &mut Player)>,
     time: Res<Time>,
     mut commands: Commands,
-    mut lines: ResMut<DebugLines>,
+    #[cfg(debug_assertions)] mut lines: ResMut<DebugLines>,
 ) {
     for (transform, mut player) in player_query.iter_mut() {
         let (input, _) = inputs[player.handle];
