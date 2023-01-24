@@ -1,0 +1,32 @@
+[tasks.build]
+command = "cargo"
+args = ["build", "--profile", "wasm-release"]
+
+[tasks.wasm-bindgen]
+script = [
+    "wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/wasm-release/legacy_game.wasm"
+]
+dependencies = ["build"]
+
+[tasks.optimize-wasm]
+script = [
+    "wasm-opt -Oz --output ./out/optimized.wasm ./out/legacy_game_bg.wasm", 
+    "mv ./out/optimized.wasm ./target/legacy_game_bg.wasm"
+]
+dependencies = ["build", "wasm-bindgen"]
+
+[tasks.fix-wasm-imports]
+script = [
+    "echo 'export { finalizeInit, getImports }' >> out/legacy_game.js"
+]
+dependencies = ["build", "wasm-bindgen"]
+
+[tasks.deploy]
+dependencies = [
+    "build",
+    "wasm-bindgen",
+    "fix-wasm-imports"
+]
+
+[env]
+RUSTFLAGS='--cfg use_canvas'
